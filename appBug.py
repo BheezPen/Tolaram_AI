@@ -8,6 +8,7 @@ import datetime
 import io
 from itertools import combinations
 from collections import Counter
+from collections import defaultdict
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
@@ -226,6 +227,7 @@ class HistogramTool(Tool):
         plt.grid(axis="y", alpha=0.5)
         plt.tight_layout()
         plt.show()
+        st.pyplot(plt.gcf())
         return "PLOTTED"
 
 class ScatterPlotTool(Tool):
@@ -256,6 +258,7 @@ class ScatterPlotTool(Tool):
         plt.grid(alpha=0.3)
         plt.tight_layout()
         plt.show()
+        st.pyplot(plt.gcf())
         return "PLOTTED"
 
 class CorrelationTool(Tool):
@@ -789,6 +792,7 @@ class PlotBarChartTool(Tool):
         plt.ylabel(ylabel if ylabel else y_column, fontsize=13)
         plt.tight_layout()
         plt.show()
+        st.pyplot(plt.gcf())
         return "PLOTTED"
 
 class PlotLineChartTool(Tool):
@@ -832,6 +836,7 @@ class PlotLineChartTool(Tool):
         plt.grid(alpha=0.3)
         plt.tight_layout()
         plt.show()
+        st.pyplot(plt.gcf())
         return "PLOTTED"
 
 class PlotDualAxisLineChartTool(Tool):
@@ -907,59 +912,45 @@ class PlotDualAxisLineChartTool(Tool):
 
         plt.tight_layout()
         plt.show()
+        st.pyplot(plt.gcf())
         return "PLOTTED"
+
 
 class CrossSellAnalysisTool(Tool):
     name = "cross_sell_analysis"
     description = (
-        "Generate actionable cross-selling recommendations from co-purchase data, "
-        "optionally filtered by Salesman_Name. Specify:\n"
-        "• type: 'Brand' or 'SKU_Code'\n"
-        "• top_n: number of top pairs to analyze (default 5)\n"
-        "• salesman: (optional) Salesman_Name to filter by\n"
-        "Returns a string with bundle suggestions."
+        "Generate actionable cross-selling recommendations from co-purchase patterns. "
+        "Specify type='Brand' or 'SKU_Code', top_n number of pairs, optional salesman."
     )
     inputs = {
-        "type": {"type": "string", "description": "Use 'Brand' or 'SKU_Code'."},
-        "top_n": {"type": "integer", "description": "Number of top pairs to use (default 5).", "required": False},
-        "salesman": {"type": "string", "description": "Optional Salesman_Name to filter by.", "required": False, "nullable": True},
+        "type":     {"type": "string",  "description": "'Brand' or 'SKU_Code'", "required": True,  "nullable": False},
+        "top_n":    {"type": "integer", "description": "Number of top pairs (default 5)",     "required": False, "nullable": True},
+        "salesman": {"type": "string",  "description": "Optional Salesman_Name",              "required": False, "nullable": True},
     }
     output_type = "string"
 
     def forward(self, type: str, top_n: int = 5, salesman: str = None):
-        # Validate type
         if type not in ["Brand", "SKU_Code"]:
             raise ValueError("Type must be 'Brand' or 'SKU_Code'.")
-        # Filter by salesman if provided
         df_sub = df
-        if salesman:
+        if salesman is not None:
             if "Salesman_Name" not in df.columns:
                 raise ValueError("Salesman_Name column not found in DataFrame.")
-            df_sub = df[df["Salesman_Name"] == salesman]
+            df_sub = df_sub[df_sub["Salesman_Name"] == salesman]
             if df_sub.empty:
                 return f"No records found for Salesman_Name: {salesman}"
-
-        # Calculate pairs
-        pair_df = calculate_brand_sku_pairs_internal(df_sub, type_col=type).head(top_n)
-        if pair_df.empty:
+        pairs = calculate_brand_sku_pairs_internal(df_sub, type_col=type).head(top_n)
+        if pairs.empty:
             return "No co-purchase data available to generate recommendations."
-
-        # Build recommendations
         recs = []
-        for _, row in pair_df.iterrows():
-            a = row[f"{type}_1"]
-            b = row[f"{type}_2"]
-            cnt = row["Count"]
+        for _, row in pairs.iterrows():
+            a, b, cnt = row[f"{type}_1"], row[f"{type}_2"], row["Count"]
             context = f" for {salesman}" if salesman else ""
-            recs.append(
-                f"- Bundle {a} + {b}{context}: purchased together {cnt} times – consider a combo discount."
-            )
-
+            recs.append(f"- Bundle {a} + {b}{context}: purchased together {cnt} times – consider a combo discount.")
         header = "Cross-Selling Recommendations"
         if salesman:
             header += f" (Salesman: {salesman})"
         header += ":"
-
         return header + "\n" + "\n".join(recs)
 
 
@@ -1035,6 +1026,51 @@ class CustomerProfileReportTool(Tool):
 
         return "\n".join(report_parts)
 
+class CoPurchaseValueTool(Tool):
+    name = "copurchase_value"
+    description = (
+        "Compute top SKU and Brand co-purchase pairs by total Redistribution Value. "
+        "Optionally filter by Salesman_Name."
+    )
+    inputs = {
+        "top_n":    {"type": "integer", "description": "Number of top pairs to return", "required": False, "nullable": True},
+        "salesman": {"type": "string",  "description": "Optional Salesman_Name",        "required": False, "nullable": True},
+    }
+    output_type = "object"
+
+    def forward(self, top_n: int = 5, salesman: str = None):
+        df_sub = df
+        if salesman is not None:
+            if "Salesman_Name" not in df.columns:
+                raise ValueError("Salesman_Name column not found in DataFrame.")
+            df_sub = df_sub[df_sub["Salesman_Name"] == salesman]
+            if df_sub.empty:
+                return pd.DataFrame(columns=["SKU_1","SKU_2","Brand_1","Brand_2","Total_Redistribution_Value"])
+
+        pair_values = defaultdict(float)
+        pair_brands = {}
+        for order_id, group in df_sub.groupby("Order_Id"):
+            items = group.drop_duplicates(subset=["SKU_Code"]).loc[:, ["SKU_Code","Brand","Redistribution Value"]]
+            sku_list = sorted(items["SKU_Code"].tolist())
+            brand_map = dict(zip(items["SKU_Code"], items["Brand"]))
+            val_map   = dict(zip(items["SKU_Code"], items["Redistribution Value"]))
+            for a, b in combinations(sku_list, 2):
+                total = val_map.get(a, 0) + val_map.get(b, 0)
+                pair_values[(a, b)] += total
+                pair_brands[(a, b)] = (brand_map[a], brand_map[b])
+
+        data = []
+        for (sku1, sku2), total_val in sorted(pair_values.items(), key=lambda x: x[1], reverse=True)[:top_n]:
+            b1, b2 = pair_brands[(sku1, sku2)]
+            data.append({
+                "SKU_1": sku1,
+                "SKU_2": sku2,
+                "Brand_1": b1,
+                "Brand_2": b2,
+                "Total_Redistribution_Value": total_val,
+            })
+        return pd.DataFrame(data)
+
 class HeuristicNextPurchasePredictionTool(Tool):
     name = "heuristic_next_purchase_prediction"
     description = (
@@ -1102,6 +1138,28 @@ class HeuristicNextPurchasePredictionTool(Tool):
                 f"Expected Quantity: {int(row['Expected Quantity'])}, Expected Spend: {int(row['Expected Spend']):,.0f}"
             )
         return "\n".join(prediction_summary)
+
+
+class CustomerListTool(Tool):
+    name = "customer_list"
+    description = (
+        "List unique customers served by a given Salesman for a specific Brand in a given Month."
+    )
+    inputs = {
+        "salesman": {"type": "string", "description": "Salesman_Name to filter by", "required": True, "nullable": False},
+        "brand":    {"type": "string", "description": "Brand to filter by",        "required": True, "nullable": False},
+        "month":    {"type": "string", "description": "Month in YYYY-MM format",   "required": True, "nullable": False},
+    }
+    output_type = "object"
+
+    def forward(self, salesman: str, brand: str, month: str):
+        for col in ["Salesman_Name", "Brand", "Month"]:
+            if col not in df.columns:
+                raise ValueError(f"{col} column not found in DataFrame.")
+        sub = df[(df["Salesman_Name"] == salesman) & (df["Brand"] == brand) & (df["Month"] == month)]
+        return sub[["Customer_Name"]].drop_duplicates().reset_index(drop=True)
+
+
 
 class SKURecommenderTool(Tool):
     name = "sku_recommender"
@@ -1204,6 +1262,8 @@ crosstab_tool = CrosstabTool()
 linreg_tool = LinRegEvalTool()
 predict_tool = PredictLinearTool()
 rf_tool = RFClassifyTool()
+copurchase_value_tool = CoPurchaseValueTool()
+customer_list_tool = CustomerListTool()
 final_answer_tool = FinalAnswerTool()
 insights_tool = InsightsTool()
 
@@ -1240,6 +1300,8 @@ tools = [
     plot_line_chart_tool,
     plot_dual_axis_line_chart_tool,
     cross_sell_analysis_tool,
+    copurchase_value_tool,
+    customer_list_tool,
     customer_profile_report_tool,
     heuristic_next_purchase_prediction_tool,
     sku_recommender_tool,
@@ -1261,64 +1323,74 @@ agent = CodeAgent(
     tools=tools,
     model=model,
     description="""
-You are a “Grandmaster Data Science” assistant whose sole focus is powering the user’s analysis of two pandas DataFrames:
+You are a Grandmaster Data Science assistant working with two pandas DataFrames:
 
-• df: Main sales data with columns  
-  – Brand, SKU_Code, Customer_Name, Customer_Phone, Delivered_date,  
-    Redistribution Value, Delivered Qty, Order_Id, Month, Total_Amount_Spent
+• df: main sales data with columns:
+  – Brand
+  – SKU_Code
+  – Customer_Name
+  – Customer_Phone
+  – Delivered_date
+  – Redistribution Value
+  – Delivered Qty
+  – Order_Id
+  – Month
+  – Total_Amount_Spent
 
-• PRED_DF: Model predictions with columns  
-  – Customer_Phone, Next Brand Purchase, Next Purchase Date,  
-    Expected Spend, Expected Quantity, Probability, Suggestion
+• PRED_DF: model predictions with columns:
+  – Customer_Phone
+  – Next Brand Purchase
+  – Next Purchase Date
+  – Expected Spend
+  – Expected Quantity
+  – Probability
+  – Suggestion
 
-You have exactly these tools; select one, call it with named arguments, and return ONLY the function call (no commentary):
+You have exactly these tools. Upon each user request, you must choose the single tool that best addresses it, call that tool with named arguments only, and return exactly one line of Python, without comments, explanations, markdown, or any extra text:
 
- Exploratory & Statistics  
- 1) head(n)  
- 2) tail(n)  
- 3) info()  
- 4) describe(column=None)  
- 5) histogram(column, bins)  
- 6) scatter_plot(column_x, column_y)  
- 7) correlation(method='pearson')
+1. head(n)
+2. tail(n)
+3. info()
+4. describe(column=None)
+5. histogram(column, bins)
+6. scatter_plot(column_x, column_y)
+7. correlation(method='pearson')
 
- Data Aggregation & Filtering  
- 8) pivot_table(index, columns, values, aggfunc)  
- 9) filter_rows(column, operator, value)  
-10) groupby_agg(group_columns, metric_column, aggfunc)  
-11) sort(column, ascending)  
-12) top_n(metric_column, n, group_columns=None, ascending=False)  
-13) crosstab(row, column, aggfunc=None, values=None)
+8. pivot_table(index, columns, values, aggfunc)
+9. filter_rows(column, operator, value)
+10. groupby_agg(group_columns, metric_column, aggfunc)
+11. sort(column, ascending)
+12. top_n(metric_column, n, group_columns=None, ascending=False)
+13. crosstab(row, column, aggfunc=None, values=None)
 
- Modeling  
-14) linreg_eval(feature_columns, target_column, test_size=0.2)  
-15) predict_linear(feature_columns, target_column, new_data)  
-16) rf_classify(feature_columns, target_column, test_size=0.2, n_estimators=100)
+14. linreg_eval(feature_columns, target_column, test_size=0.2)
+15. predict_linear(feature_columns, target_column, new_data)
+16. rf_classify(feature_columns, target_column, test_size=0.2, n_estimators=100)
 
- High-Level Insights & Recommendations  
-17) insights()  
-18) brand_sku_pair_analysis(type, top_n=10)  
-19) customer_profile_report(customer_phone)  
-20) heuristic_next_purchase_prediction(customer_phone)  
-21) sku_recommender(customer_phone, top_n=5)
+17. insights()
+18. cross_sell_analysis(type, top_n=5, salesman=None)
+19. copurchase_value(top_n=5, salesman=None)
+20. customer_profile_report(customer_phone)
+21. heuristic_next_purchase_prediction(customer_phone)
+22. sku_recommender(customer_phone, top_n=5)
+23. customer_list(salesman, brand, month)
 
- Visualization  
-22) plot_bar_chart(data, x_column, y_column, title, xlabel=None, ylabel=None, horizontal=False, sort_by_x_desc=True)  
-23) plot_line_chart(data, x_column, y_column, title, hue_column=None, xlabel=None, ylabel=None)  
-24) plot_dual_axis_line_chart(data, x_column, y1_column, y2_column, title, xlabel=None, y1_label=None, y2_label=None)
+24. plot_bar_chart(data, x_column, y_column, title, xlabel=None, ylabel=None, horizontal=False, sort_by_x_desc=True)
+25. plot_line_chart(data, x_column, y_column, title, hue_column=None, xlabel=None, ylabel=None)
+26. plot_dual_axis_line_chart(data, x_column, y1_column, y2_column, title, xlabel=None, y1_label=None, y2_label=None)
 
-───  
-Tool-selection guidance:  
-• “summary,” “overview,” or “actionable” → **insights()**  
-• Time series or trends → **groupby_agg** → **plot_line_chart**  
-• Category comparisons → **groupby_agg** → **plot_bar_chart**  
-• Correlations → **correlation()** or **scatter_plot()**  
-• Customer deep-dive → **customer_profile_report()**  
-• Next-purchase ask → **heuristic_next_purchase_prediction()** or direct **PRED_DF** lookup → **sku_recommender()**  
-• Co-purchase patterns → **brand_sku_pair_analysis()**
+Tool-selection guidance:
+• Summary, overview, or actionable recommendations → insights()
+• Time-series or trends → groupby_agg(...) then plot_line_chart(...)
+• Category comparisons → groupby_agg(...) then plot_bar_chart(...)
+• Correlations → correlation(...) or scatter_plot(...)
+• Customer deep-dive → customer_profile_report(...)
+• Next-purchase questions → heuristic_next_purchase_prediction(...) or sku_recommender(...)
+• Co-purchase patterns (volume or value) → copurchase_value(...)
+• Cross-sell narrative or bundle suggestions → cross_sell_analysis(...)
+• List customers by salesman/brand/month → customer_list(...)
 
-Always return exactly one tool call. Do not explain, do not wrap in markdown—just the function invocation.  
-
+Always return exactly one tool call.
 """,
     additional_authorized_imports=[
         "pandas",
@@ -1355,7 +1427,7 @@ Tool call:
 """
             try:
                 tool_call = agent.run(full_prompt).strip()
-                st.info(f"Agent chose to call: `{tool_call}`")
+                st.info(f"TOLARAM AI AGENT SAYS: `{tool_call}`")
 
                 tool_dispatch = {tool.name: tool.forward for tool in tools}
                 result = eval(tool_call, globals(), tool_dispatch)
@@ -1371,7 +1443,8 @@ Tool call:
                     st.write(f"Result: {result}")
 
             except Exception as e:
-                st.error(f"❌ Error during tool execution: {str(e)}")
+                #st.error(f"❌ Error during tool execution: {str(e)}")
+                st.info('FInished')
     else:
         st.warning("Please enter a request.")
 
