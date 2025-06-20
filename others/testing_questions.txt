@@ -1,0 +1,91 @@
+TESTING AND IMPROVED QUESTIONS PERFORMING QUESTIONS
+
+
+LIKELY QUESTIONS FROMT THE SALES GUYS AND Field Executive Guys
+
+What was the total quantity of products delivered last month?
+
+Which brands were the top 5 sellers in terms of delivered quantity last quarter?
+
+What is the distribution of different brand varieties in our current inventory?
+
+Can you show me the monthly sales trend for Brand Indomie? 
+
+Can you show me the monthly sales trend for Brands during October 2024? 
+
+What are the top performing BRANCHES AND NOT BRAND in terms of total redistribution value for the current year?
+
+What are the top performing SALESMAN _name and NOT CUSTOMERS in terms of total redistribution value for the current year?
+
+Which SKUs have the highest delivery quantities for 'Brand INDOMIE?
+
+Can we get a detailed breakdown of 'Brand HTC' sales by SKU for each branch?
+
+Are there any significant drops in monthly quantity trends for any of our top brands?
+
+
+
+
+Likely Questions by Stakeholders:
+
+What are the overall top 10 brands by quantity sold across all branches for the entire dataset timeframe?
+
+What are the top 5 brand pairs contributing to the highest redistribution value?
+
+How has the overall market share of our top brands changed over the last year?
+
+Can we get a comprehensive deep dive into 'Brand COLGATE' sales performance, including SKU-level analysis and monthly trends?
+
+What is the overall distribution of our brand variety, and are there any gaps in our product offerings?
+
+Which brand combinations are driving the most value for the company?
+
+Based on brand pair analysis, what are potential cross-selling opportunities we can explore?
+
+Are there any emerging trends in brand preferences that we should be aware of?
+
+Which branches show the most potential for growth based on current sales trends?
+
+Customer-Specific Questions:
+What is the total purchase quantity and value for Customer 7038104779 over the last six months?
+Which brands has Customer 7085787673 purchased most frequently?
+Can you list all the SKUs purchased by Customer 7036771845 in a weekly?
+Are there any specific brands or products that Customer 7037250850 consistently buys together
+Which customers have stopped purchasing from us for a specific brand (Indomie Brand) in the last month?
+Can we identify high-value customers who primarily purchase premium brands LIKE INDOMIE, ADDMIE?
+What are the top 5 customer names by delivered quantity in the 'Lagos 1' branch?
+
+
+Salesman-Specific Questions:
+What is the delivered quantity and redistribution value achieved by Salesman MR  for Brand COLGATE this month?
+
+Which salesman has the highest average order value for Brand HTC?
+
+Can you show the monthly trend of delivered quantity for Salesman GODWIN UDOEKPO across all brands?
+
+Which customers are primarily handled by Salesman SUNDAY POPOOLA?
+
+For Salesman EGBELE MESHACK, what are the most common brand pairs sold to their customers?
+
+Are there any customers with consistently low delivered quantities from Salesman OYENIKE AJAYI ?
+
+Which brands does Salesman LIADI TAJUDEEN sell the most of, in terms of quantity and value?
+
+Can we see a breakdown of Salesman  KALU IMO sales by SKU for a particular brand?
+
+What is the total redistribution value for Brand HTC across all branches for the entire dataset period?
+
+How has the delivered quantity for Brand POWER OIL trended monthly over the past year?
+
+Can you provide a comprehensive deep dive into Brand Minimie, including its top 5 selling SKUs, monthly quantity trends, and its contribution to overall redistribution value?
+
+For Brand ADDMIE, what are the delivered quantities for each SKU, and which are the top 3 performers?
+
+Are there any specific SKUs within Brand INDOMIE that have seen a significant increase or decrease in 
+delivered quantity recently?
+
+Beyond the top 5, what are other significant brand pairs that include Brand KELLOGGS?
+
+How does the performance of 'Brand INDOMIE compare to its closest brand in terms of delivered quantity and redistribution value?
+
+TOLARAM AI Agent: INDOMIE significantly outperforms its closest competitor, POWER OIL, in both delivered quantity (150,826 vs. 58,217) and redistribution value (1.53 billion vs. 1.16 billion). Additionally, INDOMIE leads as the top brand by revenue.
